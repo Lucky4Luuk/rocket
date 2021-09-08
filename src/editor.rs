@@ -1,25 +1,77 @@
-pub struct Editor {
-    pub folder_path: String,
+use std::iter::Iterator;
 
-    pub current_filename: Option<String>,
-    pub content: Option<String>,
+use crossterm::event::KeyEvent;
+
+pub struct File {
+    path: Option<String>,
+    content: String,
 }
 
-impl Editor {
-    pub fn from_path(path: &str) -> Result<Self, std::io::Error> {
-        let content = String::from("Open a file to start working!");
-        Ok(Self {
-            folder_path: path.to_string(),
+impl File {
+    /// New file, has not been opened from a file
+    pub fn new() -> Self {
+        Self {
+            path: None,
+            content: String::new(),
+        }
+    }
 
-            current_filename: None,
-            content: None,
+    /// Open a file from a path
+    pub fn from_path(path: &str) -> Result<Self, std::io::Error> {
+        Ok(Self {
+            path: Some(path.to_string()),
+            content: std::fs::read_to_string(path)?
         })
     }
 
-    pub fn filename(&self) -> Result<String, ()> {
-        match &self.current_filename {
-            Some(f) => Ok(f.clone()),
-            None => Err(())
-        }
+    pub fn filename(&self) -> Option<&String> {
+        self.path.as_ref()
+    }
+
+    pub fn content(&self) -> &str {
+        &self.content
+    }
+}
+
+pub struct Editor {
+    pub open_files: Vec<File>,
+    pub cur_file_idx: usize,
+
+    pub cursor: (usize, usize),
+}
+
+impl Editor {
+    pub fn from_paths(paths: Vec<&str>) -> Result<Self, std::io::Error> {
+        let files = if paths.is_empty() {
+            vec![File::new()]
+        } else {
+            // paths.iter().map(|s| File::from_path(*s)).collect()
+            let mut tmp = Vec::new();
+            for path in paths {
+                tmp.push(File::from_path(path)?);
+            }
+            tmp
+        };
+        Ok(Self {
+            open_files: files,
+            cur_file_idx: 0,
+            cursor: (0,0),
+        })
+    }
+
+    pub fn all_filenames(&self) -> impl Iterator<Item = &String> {
+        self.open_files.iter().filter_map(File::filename)
+    }
+
+    pub fn filename(&self) -> Option<&String> {
+        self.open_files[self.cur_file_idx].filename()
+    }
+
+    pub fn content(&self) -> &str {
+        self.open_files[self.cur_file_idx].content()
+    }
+
+    pub fn handle_key(&mut self, key: KeyEvent) {
+
     }
 }
