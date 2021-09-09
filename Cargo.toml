@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-tui = { version = "0.16.0", features = ["crossterm"] }
+tui = { version = "0.16.0", default-features = false, features = ["crossterm"] }
 crossterm = "0.21.0"

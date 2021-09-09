@@ -5,6 +5,7 @@ use crossterm::event::KeyEvent;
 pub struct File {
     path: Option<String>,
     content: String,
+    cursor: (usize, usize),
 }
 
 impl File {
@@ -13,6 +14,7 @@ impl File {
         Self {
             path: None,
             content: String::new(),
+            cursor: (0, 0),
         }
     }
 
@@ -30,6 +32,10 @@ impl File {
 
     pub fn content(&self) -> &str {
         &self.content
+    }
+
+    pub fn cursor(&self) -> (usize, usize) {
+        self.cursor
     }
 }
 
@@ -55,7 +61,6 @@ impl Editor {
         Ok(Self {
             open_files: files,
             cur_file_idx: 0,
-            cursor: (0,0),
         })
     }
 
@@ -69,6 +74,10 @@ impl Editor {
 
     pub fn content(&self) -> &str {
         self.open_files[self.cur_file_idx].content()
+    }
+
+    pub fn cursor(&self) -> (usize, usize) {
+        self.open_files[self.cur_file_idx].cursor()
     }
 
     pub fn handle_key(&mut self, key: KeyEvent) {
