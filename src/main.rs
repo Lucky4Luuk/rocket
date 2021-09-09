@@ -10,7 +10,9 @@ use tui::widgets::{Widget, Tabs, Paragraph, Block, Borders};
 use tui::layout::{Layout, Constraint, Direction};
 use tui::text::{Text, Spans};
 
-mod editor;
+pub(crate) mod style;
+
+pub(crate) mod editor;
 use editor::Editor;
 
 fn main() -> Result<(), io::Error> {
@@ -26,6 +28,9 @@ fn main() -> Result<(), io::Error> {
 
     'main: loop {
         terminal.draw(|f| {
+            let cursor_pos = editor.cursor();
+            f.set_cursor(cursor_pos.0 + 3, cursor_pos.1 + 1);
+
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .margin(0)
@@ -42,13 +47,7 @@ fn main() -> Result<(), io::Error> {
                 .divider("|");
             f.render_widget(file_header, chunks[0]);
 
-            let mut content_spans = Vec::new();
-            let lines: Vec<&str> = editor.content().lines().collect();
-            let max_nums = lines.len().to_string().chars().count();
-            for (i, line) in lines.into_iter().enumerate() {
-                content_spans.push(Spans::from(format!("{:width$}~ {}", i, line, width = max_nums)));
-            }
-            let cur_file_content = Paragraph::new(content_spans);
+            let cur_file_content = Paragraph::new(editor.styled_text.clone());
             f.render_widget(cur_file_content, chunks[1]);
         })?;
 
@@ -70,8 +69,6 @@ fn main() -> Result<(), io::Error> {
 
     crossterm::terminal::disable_raw_mode()?;
     execute!(io::stdout(), crossterm::style::ResetColor, crossterm::cursor::Show, crossterm::terminal::LeaveAlternateScreen)?;
-
-    println!("");
 
     Ok(())
 }
