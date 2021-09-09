@@ -22,7 +22,8 @@ impl File {
     pub fn from_path(path: &str) -> Result<Self, std::io::Error> {
         Ok(Self {
             path: Some(path.to_string()),
-            content: std::fs::read_to_string(path)?
+            content: std::fs::read_to_string(path)?,
+            cursor: (0, 0),
         })
     }
 
@@ -42,8 +43,6 @@ impl File {
 pub struct Editor {
     pub open_files: Vec<File>,
     pub cur_file_idx: usize,
-
-    pub cursor: (usize, usize),
 }
 
 impl Editor {
