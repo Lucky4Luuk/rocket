@@ -24,7 +24,7 @@ fn main() -> Result<(), io::Error> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut editor = Editor::from_paths(vec!["test.txt"])?;
+    let mut editor = Editor::from_paths(vec!["test.rs", "test.txt"])?;
 
     'main: loop {
         terminal.draw(|f| {

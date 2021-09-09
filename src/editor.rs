@@ -81,6 +81,24 @@ impl File {
         }
     }
 
+    pub fn add_line(&mut self) {
+        if self.cursor.0 >= self.line_length() {
+            if self.cursor.1 >= self.line_count()-1 {
+                self.content.push(String::new());
+            } else {
+                self.content.insert(self.cursor.1 as usize + 1, String::new());
+            }
+        } else {
+            //Not at the end of a line, so we have to split the current line and move it the right side down
+            let left: String = self.content[self.cursor.1 as usize][..].graphemes(true).take(self.cursor.0 as usize).collect();
+            let right: String = self.content[self.cursor.1 as usize][..].graphemes(true).skip(self.cursor.0 as usize).collect();
+            self.content[self.cursor.1 as usize] = left;
+            self.content.insert(self.cursor.1 as usize + 1, right);
+        }
+        self.move_cursor(0, 1);
+        self.cursor.0 = 0;
+    }
+
     pub fn add_character(&mut self, c: char) {
         if self.cursor.0 >= self.line_length() {
             self.content[self.cursor.1 as usize].push(c);
@@ -91,6 +109,27 @@ impl File {
             left.push(c);
             left.push_str(&right);
             self.content[self.cursor.1 as usize] = left;
+        }
+        self.move_cursor(1, 0);
+    }
+
+    pub fn remove_character(&mut self) {
+        if self.cursor.0 == 0 {
+            if self.cursor.1 > 0 {
+                let cur = self.content[self.cursor.1 as usize].clone();
+                let next_x = self.content[self.cursor.1 as usize - 1].len() as u16;
+                self.content[self.cursor.1 as usize - 1].push_str(&cur);
+                self.content.remove(self.cursor.1 as usize);
+                self.move_cursor(0,-1);
+                self.cursor.0 = next_x;
+            }
+        } else {
+            //Not at the start of a line, so we have to remove characters
+            let mut left: String = self.content[self.cursor.1 as usize][..].graphemes(true).take(self.cursor.0 as usize - 1).collect();
+            let right: String = self.content[self.cursor.1 as usize][..].graphemes(true).skip(self.cursor.0 as usize).collect();
+            left.push_str(&right);
+            self.content[self.cursor.1 as usize] = left;
+            self.move_cursor(-1, 0);
         }
     }
 }
@@ -130,7 +169,7 @@ impl Editor {
         let max_nums = lines.len().to_string().chars().count();
         for (i, line) in lines.into_iter().enumerate() {
             let line = format!("{:width$}~ {}", i, line, width = max_nums);
-            let styled_line = crate::style::style_line(line);
+            let styled_line = crate::style::style_line(line, self.extension());
             content_spans.push(styled_line);
         }
         self.styled_text = Text::from(content_spans);
@@ -142,6 +181,14 @@ impl Editor {
 
     pub fn filename(&self) -> Option<&String> {
         self.open_files[self.cur_file_idx].filename()
+    }
+
+    pub fn extension(&self) -> &str {
+        if let Some(filename) = self.filename() {
+            std::path::Path::new(filename).extension().unwrap_or(std::ffi::OsStr::new("")).to_str().expect("Extension contains non-Unicode characters!")
+        } else {
+            ""
+        }
     }
 
     pub fn content(&self) -> &Vec<String> {
@@ -164,10 +211,21 @@ impl Editor {
             KeyCode::Up => self.move_cursor(0,-1),
             KeyCode::Down => self.move_cursor(0, 1),
 
+            KeyCode::Enter => {
+                self.open_files[self.cur_file_idx].add_line();
+                // self.move_cursor(0, 1);
+                self.update_styled_text();
+            },
+
+            KeyCode::Backspace => {
+                self.open_files[self.cur_file_idx].remove_character();
+                self.update_styled_text();
+            }
+
             KeyCode::Char(c) => {
                 //TODO: Check modifiers
                 self.open_files[self.cur_file_idx].add_character(c);
-                self.move_cursor(1, 0);
+                // self.move_cursor(1, 0);
                 self.update_styled_text();
             },
 
