@@ -1,4 +1,5 @@
 use std::iter::Iterator;
+use unicode_segmentation::UnicodeSegmentation;
 
 use tui::text::Text;
 
@@ -6,7 +7,7 @@ use crossterm::event::{KeyEvent, KeyCode};
 
 pub struct File {
     path: Option<String>,
-    content: String,
+    content: Vec<String>,
     cursor: (u16, u16),
     scroll: (u16, u16),
 }
@@ -16,7 +17,7 @@ impl File {
     pub fn new() -> Self {
         Self {
             path: None,
-            content: String::new(),
+            content: Vec::new(),
             cursor: (0, 0),
             scroll: (0, 0),
         }
@@ -26,7 +27,7 @@ impl File {
     pub fn from_path(path: &str) -> Result<Self, std::io::Error> {
         Ok(Self {
             path: Some(path.to_string()),
-            content: std::fs::read_to_string(path)?,
+            content: std::fs::read_to_string(path)?.lines().map(|s| s.to_string()).collect::<Vec<String>>(),
             cursor: (0, 0),
             scroll: (0, 0),
         })
@@ -36,7 +37,7 @@ impl File {
         self.path.as_ref()
     }
 
-    pub fn content(&self) -> &str {
+    pub fn content(&self) -> &Vec<String> {
         &self.content
     }
 
@@ -49,11 +50,11 @@ impl File {
     }
 
     fn line_length(&self) -> u16 {
-        self.content.lines().collect::<Vec<&str>>()[self.cursor.1 as usize].len() as u16
+        self.content[self.cursor.1 as usize].len() as u16
     }
 
     fn line_count(&self) -> u16 {
-        self.content.lines().count() as u16
+        self.content.len() as u16
     }
 
     pub fn move_cursor(&mut self, dx: i16, dy: i16) {
@@ -77,6 +78,19 @@ impl File {
                 self.cursor.1 += dy as u16;
                 self.cursor.0 = self.cursor.0.min(self.line_length());
             }
+        }
+    }
+
+    pub fn add_character(&mut self, c: char) {
+        if self.cursor.0 >= self.line_length() {
+            self.content[self.cursor.1 as usize].push(c);
+        } else {
+            //We are not at the end of a line, so we have to split, push and merge
+            let mut left: String = self.content[self.cursor.1 as usize][..].graphemes(true).take(self.cursor.0 as usize).collect();
+            let right: String = self.content[self.cursor.1 as usize][..].graphemes(true).skip(self.cursor.0 as usize).collect();
+            left.push(c);
+            left.push_str(&right);
+            self.content[self.cursor.1 as usize] = left;
         }
     }
 }
@@ -112,7 +126,7 @@ impl Editor {
 
     fn update_styled_text(&mut self) {
         let mut content_spans = Vec::new();
-        let lines: Vec<&str> = self.content().lines().collect();
+        let lines = self.content();
         let max_nums = lines.len().to_string().chars().count();
         for (i, line) in lines.into_iter().enumerate() {
             let line = format!("{:width$}~ {}", i, line, width = max_nums);
@@ -130,7 +144,7 @@ impl Editor {
         self.open_files[self.cur_file_idx].filename()
     }
 
-    pub fn content(&self) -> &str {
+    pub fn content(&self) -> &Vec<String> {
         self.open_files[self.cur_file_idx].content()
     }
 
@@ -145,11 +159,18 @@ impl Editor {
 
     pub fn handle_key(&mut self, key: KeyEvent) {
         match key.code {
-            KeyCode::Char(c) => {},
             KeyCode::Left => self.move_cursor(-1, 0),
             KeyCode::Right => self.move_cursor(1, 0),
             KeyCode::Up => self.move_cursor(0,-1),
             KeyCode::Down => self.move_cursor(0, 1),
+
+            KeyCode::Char(c) => {
+                //TODO: Check modifiers
+                self.open_files[self.cur_file_idx].add_character(c);
+                self.move_cursor(1, 0);
+                self.update_styled_text();
+            },
+
             _ => {},
         }
     }
