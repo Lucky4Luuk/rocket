@@ -6,6 +6,8 @@ use tui::text::Text;
 
 use crossterm::event::{KeyEvent, KeyCode};
 
+use crate::popup::Popup;
+
 pub struct File {
     path: Option<String>,
     content: Vec<String>,

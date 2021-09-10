@@ -11,6 +11,10 @@ lazy_static! {
     // static ref PALETTE_BACKGROUND: Color = Color::Rgb(17, 53, 44);
     static ref PALETTE_BACKGROUND: Color = Color::Rgb(32, 64, 56);
     static ref PALETTE_FOOTER: Color = Color::Rgb(0,59,59);
+    static ref PALETTE_POPUP: Color = Color::Rgb(42,126,105);
+    static ref PALETTE_POPUP_HEADER: Color = Color::Rgb(0,71,71);
+    static ref PALETTE_BUTTON: Color = Color::Rgb(0,71,71);
+    static ref PALETTE_BUTTON_SELECT: Color = Color::Rgb(191,141,124);
 }
 
 fn no_style() -> Style {
@@ -78,4 +82,20 @@ pub fn header_style(selected: bool) -> Style {
 
 pub fn footer_style() -> Style {
     Style::default().bg(*PALETTE_FOOTER)
+}
+
+pub fn popup_style(header: bool) -> Style {
+    if header {
+        Style::default().bg(*PALETTE_POPUP_HEADER)
+    } else {
+        Style::default().bg(*PALETTE_POPUP)
+    }
+}
+
+pub fn button_style(selected: bool) -> Style {
+    if selected {
+        Style::default().bg(*PALETTE_BUTTON_SELECT)
+    } else {
+        Style::default().bg(*PALETTE_BUTTON)
+    }
 }

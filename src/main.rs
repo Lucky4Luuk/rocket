@@ -1,6 +1,6 @@
 #[macro_use] extern crate lazy_static;
 
-use tui::text::Span;
+use std::sync::Mutex;
 use std::io;
 use std::time::Duration;
 
@@ -8,6 +8,7 @@ use crossterm::event::{poll, read, Event, KeyCode};
 use crossterm::execute;
 
 use tui::Terminal;
+use tui::text::Span;
 use tui::backend::CrosstermBackend;
 use tui::widgets::{Widget, Tabs, Paragraph, Block, Borders};
 use tui::layout::{Layout, Constraint, Direction, Alignment};
@@ -17,6 +18,15 @@ pub(crate) mod style;
 
 pub(crate) mod editor;
 use editor::Editor;
+
+pub(crate) mod popup;
+use popup::{Popup, PopupKind};
+
+pub(crate) mod util;
+
+lazy_static! {
+    static ref POPUP_STACK: Mutex<Vec<Popup>> = Mutex::new(Vec::new());
+}
 
 fn main() -> Result<(), io::Error> {
     crossterm::terminal::enable_raw_mode()?;
@@ -45,9 +55,6 @@ fn main() -> Result<(), io::Error> {
                     ].as_ref()
                 )
                 .split(f.size());
-
-            // let file_header = Tabs::new(editor.all_filenames().cloned().map(Spans::from).collect())
-            //     .divider("|");
 
             let mut file_header_span = Spans::from(vec![]);
             for (i, filename) in editor.all_filenames_modified().enumerate() {
@@ -85,6 +92,47 @@ fn main() -> Result<(), io::Error> {
                 .alignment(Alignment::Right)
                 .style(style::footer_style());
             f.render_widget(rocket_text, footer[1]);
+
+            {
+                let stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
+                if stack.len() > 0 {
+                    let popup = &stack[0];
+
+                    let popup_rect = util::centered_rect(50, 20, f.size());
+                    let popup_layout = Layout::default()
+                        .direction(Direction::Vertical)
+                        .margin(0)
+                        .constraints(
+                            [
+                                Constraint::Length(1),
+                                Constraint::Min(1),
+                                Constraint::Length(3), //For the buttons
+                            ].as_ref()
+                        )
+                        .split(popup_rect);
+
+                    let popup_header = Paragraph::new(popup.title()).style(style::popup_style(true));
+                    f.render_widget(popup_header, popup_layout[0]);
+                    let popup_content = Paragraph::new(popup.content()).style(style::popup_style(false));
+                    f.render_widget(popup_content, popup_layout[1]);
+
+                    let button_perc = ((1f32 / popup.buttons.len() as f32) * 100f32) as u16;
+                    let button_constraints: Vec<Constraint> = (0..popup.buttons.len()).map(|_| Constraint::Percentage(button_perc)).collect();
+
+                    f.render_widget(Block::default().style(style::popup_style(false)), popup_layout[2]);
+
+                    let popup_button_layout = Layout::default()
+                        .direction(Direction::Horizontal)
+                        .margin(1)
+                        .constraints(button_constraints)
+                        .split(popup_layout[2]);
+
+                    for (i, button) in popup.buttons.iter().enumerate() {
+                        let button_widget = Paragraph::new(button.get_text()).style(style::button_style(i == popup.button_idx)).alignment(Alignment::Center);
+                        f.render_widget(button_widget, popup_button_layout[i]);
+                    }
+                }
+            }
         })?;
 
         if poll(Duration::from_millis(50))? {
@@ -99,6 +147,10 @@ fn main() -> Result<(), io::Error> {
                                     //TODO: Handle the error
                                 }
                             },
+                            KeyCode::Char('t') => {
+                                let mut stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
+                                stack.push(Popup::from_kind(PopupKind::Dialogue("Test dialogue".to_string())));
+                            }
                             _ => {}
                         }
                     } else if key.modifiers.contains(crossterm::event::KeyModifiers::ALT) {
@@ -106,6 +158,11 @@ fn main() -> Result<(), io::Error> {
                             KeyCode::Char('u') => editor.decrement_file_idx(), //TODO: Bad shortcut
                             KeyCode::Char('i') => editor.increment_file_idx(), //TODO: Bad shortcut
                             _ => {}
+                        }
+                    } else if POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!").len() > 0 {
+                        let mut stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
+                        if stack[0].handle_key(key, &mut editor) {
+                            stack.remove(0);
                         }
                     } else {
                         editor.handle_key(key);
