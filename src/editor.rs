@@ -1,4 +1,5 @@
 use std::iter::Iterator;
+use std::time::{Instant, Duration};
 use unicode_segmentation::UnicodeSegmentation;
 
 use tui::text::Text;
@@ -10,6 +11,9 @@ pub struct File {
     content: Vec<String>,
     cursor: (u16, u16),
     scroll: (u16, u16),
+
+    is_dirty: bool,
+    saved_time: Option<Instant>,
 }
 
 impl File {
@@ -20,6 +24,9 @@ impl File {
             content: Vec::new(),
             cursor: (0, 0),
             scroll: (0, 0),
+
+            is_dirty: false,
+            saved_time: None,
         }
     }
 
@@ -30,10 +37,29 @@ impl File {
             content: std::fs::read_to_string(path)?.lines().map(|s| s.to_string()).collect::<Vec<String>>(),
             cursor: (0, 0),
             scroll: (0, 0),
+
+            is_dirty: false,
+            saved_time: None,
         })
     }
 
-    pub fn filename(&self) -> Option<&String> {
+    pub fn save(&mut self) -> Result<(), std::io::Error> {
+        if let Some(path) = &self.path {
+            let content: String = self.content.iter().map(|s| {
+                let mut s = String::from(s);
+                s.push('\n');
+                s
+            }).collect();
+            std::fs::write(path, content)?;
+            self.is_dirty = false;
+            self.saved_time = Some(Instant::now());
+            Ok(())
+        } else {
+            Err(std::io::Error::new(std::io::ErrorKind::Other, "No path!"))
+        }
+    }
+
+    pub fn path(&self) -> Option<&String> {
         self.path.as_ref()
     }
 
@@ -47,6 +73,14 @@ impl File {
 
     pub fn cursor_unscrolled(&self) -> (u16, u16) {
         (self.cursor.0 - self.scroll.1, self.cursor.1 - self.scroll.1)
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.is_dirty
+    }
+
+    pub fn saved_time(&self) -> Option<Instant> {
+        self.saved_time
     }
 
     fn line_length(&self) -> u16 {
@@ -97,6 +131,7 @@ impl File {
         }
         self.move_cursor(0, 1);
         self.cursor.0 = 0;
+        self.is_dirty = true;
     }
 
     pub fn add_character(&mut self, c: char) {
@@ -111,6 +146,7 @@ impl File {
             self.content[self.cursor.1 as usize] = left;
         }
         self.move_cursor(1, 0);
+        self.is_dirty = true;
     }
 
     pub fn remove_character(&mut self) {
@@ -120,16 +156,27 @@ impl File {
                 let next_x = self.content[self.cursor.1 as usize - 1].len() as u16;
                 self.content[self.cursor.1 as usize - 1].push_str(&cur);
                 self.content.remove(self.cursor.1 as usize);
-                self.move_cursor(0,-1);
+                // self.move_cursor(0,-1);
+                self.cursor.1 -= 1;
                 self.cursor.0 = next_x;
+                self.is_dirty = true;
             }
-        } else {
+        } else if self.cursor.0 > 0 {
             //Not at the start of a line, so we have to remove characters
             let mut left: String = self.content[self.cursor.1 as usize][..].graphemes(true).take(self.cursor.0 as usize - 1).collect();
             let right: String = self.content[self.cursor.1 as usize][..].graphemes(true).skip(self.cursor.0 as usize).collect();
             left.push_str(&right);
             self.content[self.cursor.1 as usize] = left;
             self.move_cursor(-1, 0);
+            self.is_dirty = true;
+        }
+    }
+
+    pub fn delete_character(&mut self) {
+        if self.cursor.0 < self.line_length() {
+            self.move_cursor(1, 0);
+            self.remove_character();
+            // self.move_cursor(-1, 0);
         }
     }
 }
@@ -163,28 +210,51 @@ impl Editor {
         Ok(obj)
     }
 
+    pub fn save_file(&mut self) -> Result<(), std::io::Error> {
+        self.open_files[self.cur_file_idx].save()
+    }
+
     fn update_styled_text(&mut self) {
         let mut content_spans = Vec::new();
         let lines = self.content();
         let max_nums = lines.len().to_string().chars().count();
         for (i, line) in lines.into_iter().enumerate() {
-            let line = format!("{:width$}~ {}", i, line, width = max_nums);
-            let styled_line = crate::style::style_line(line, self.extension());
+            let line_num = format!("{:width$}~ ", i, width = max_nums);
+            let line = format!("{}", line.replace('\t', "    "));
+            let styled_line_num = crate::style::editor_style(line_num);
+            let mut styled_line = crate::style::style_line(line, self.extension());
+            styled_line.0.insert(0, styled_line_num);
             content_spans.push(styled_line);
         }
         self.styled_text = Text::from(content_spans);
     }
 
-    pub fn all_filenames(&self) -> impl Iterator<Item = &String> {
-        self.open_files.iter().filter_map(File::filename)
+    pub fn all_filenames(&self) -> impl Iterator<Item = &str> {
+        use std::path::Path;
+        use std::ffi::OsStr;
+        self.all_paths().map(Path::new).map(|p| p.file_name().unwrap_or(OsStr::new("unsaved"))).map(|s| s.to_str().expect("Filenames with non-unicode characters are not supported!"))
     }
 
-    pub fn filename(&self) -> Option<&String> {
-        self.open_files[self.cur_file_idx].filename()
+    pub fn all_filenames_modified(&self) -> impl Iterator<Item = String> + '_ {
+        self.all_filenames().enumerate().map(move |(i, s)| {
+            if self.open_files[i].is_dirty() {
+                format!("*{}", s)
+            } else {
+                s.to_string()
+            }
+        })
+    }
+
+    pub fn all_paths(&self) -> impl Iterator<Item = &String> {
+        self.open_files.iter().filter_map(File::path)
+    }
+
+    pub fn path(&self) -> Option<&String> {
+        self.open_files[self.cur_file_idx].path()
     }
 
     pub fn extension(&self) -> &str {
-        if let Some(filename) = self.filename() {
+        if let Some(filename) = self.path() {
             std::path::Path::new(filename).extension().unwrap_or(std::ffi::OsStr::new("")).to_str().expect("Extension contains non-Unicode characters!")
         } else {
             ""
@@ -195,8 +265,33 @@ impl Editor {
         self.open_files[self.cur_file_idx].content()
     }
 
+    pub fn is_dirty(&self) -> bool {
+        self.open_files[self.cur_file_idx].is_dirty()
+    }
+
+    pub fn seconds_since_save(&self) -> Option<u64> {
+        Some(self.open_files[self.cur_file_idx].saved_time()?.elapsed().as_secs())
+    }
+
     pub fn cursor(&self) -> (u16, u16) {
         self.open_files[self.cur_file_idx].cursor_unscrolled()
+    }
+
+    pub fn increment_file_idx(&mut self) {
+        self.cur_file_idx += 1;
+        if self.cur_file_idx >= self.open_files.len() {
+            self.cur_file_idx = 0;
+        }
+        self.update_styled_text();
+    }
+
+    pub fn decrement_file_idx(&mut self) {
+        if self.cur_file_idx > 0 {
+            self.cur_file_idx -= 1;
+        } else {
+            self.cur_file_idx = self.open_files.len() - 1;
+        }
+        self.update_styled_text();
     }
 
     fn move_cursor(&mut self, dx: i16, dy: i16) {
@@ -220,7 +315,20 @@ impl Editor {
             KeyCode::Backspace => {
                 self.open_files[self.cur_file_idx].remove_character();
                 self.update_styled_text();
-            }
+            },
+
+            KeyCode::Delete => {
+                self.open_files[self.cur_file_idx].delete_character();
+                self.update_styled_text();
+            },
+
+            KeyCode::Tab => {
+                for _ in 0..4 {
+                    self.open_files[self.cur_file_idx].add_character(' ');
+                }
+                // self.open_files[self.cur_file_idx].add_character('\t');
+                self.update_styled_text();
+            },
 
             KeyCode::Char(c) => {
                 //TODO: Check modifiers
