@@ -5,16 +5,17 @@ use tui::style::{Style, Color};
 
 lazy_static! {
     static ref PALETTE_HEADER_SELECTED: Color = Color::Rgb(42, 126, 105);
-    static ref PALETTE_HEADER: Color = Color::Rgb(0,59,59);
+    static ref PALETTE_HEADER: Color = Color::Rgb(0, 59, 59);
     static ref PALETTE_LINE_NUM: Color = Color::Rgb(42, 126, 105);
     static ref PALETTE_HIGHLIGHT: Color = Color::Rgb(251, 203, 179);
     // static ref PALETTE_BACKGROUND: Color = Color::Rgb(17, 53, 44);
     static ref PALETTE_BACKGROUND: Color = Color::Rgb(32, 64, 56);
-    static ref PALETTE_FOOTER: Color = Color::Rgb(0,59,59);
-    static ref PALETTE_POPUP: Color = Color::Rgb(42,126,105);
-    static ref PALETTE_POPUP_HEADER: Color = Color::Rgb(0,71,71);
-    static ref PALETTE_BUTTON: Color = Color::Rgb(0,71,71);
-    static ref PALETTE_BUTTON_SELECT: Color = Color::Rgb(191,141,124);
+    static ref PALETTE_FOOTER: Color = Color::Rgb(0, 59, 59);
+    static ref PALETTE_POPUP: Color = Color::Rgb(42, 126, 105);
+    static ref PALETTE_POPUP_HEADER: Color = Color::Rgb(0, 71, 71);
+    static ref PALETTE_BUTTON: Color = Color::Rgb(0, 71, 71);
+    static ref PALETTE_BUTTON_SELECT: Color = Color::Rgb(251, 203, 179);
+    static ref PALETTE_BUTTON_SELECT_TEXT: Color = Color::Rgb(32, 64, 56);
 }
 
 fn no_style() -> Style {
@@ -94,7 +95,7 @@ pub fn popup_style(header: bool) -> Style {
 
 pub fn button_style(selected: bool) -> Style {
     if selected {
-        Style::default().bg(*PALETTE_BUTTON_SELECT)
+        Style::default().bg(*PALETTE_BUTTON_SELECT).fg(*PALETTE_BUTTON_SELECT_TEXT)
     } else {
         Style::default().bg(*PALETTE_BUTTON)
     }
