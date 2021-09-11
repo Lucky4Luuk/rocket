@@ -1,3 +1,5 @@
+use unicode_segmentation::UnicodeSegmentation;
+
 use crossterm::event::{KeyEvent, KeyCode};
 
 pub enum PopupButton {
@@ -25,7 +27,7 @@ pub enum PopupKind {
 impl PopupKind {
     pub fn get_buttons(&self) -> Vec<PopupButton> {
         match self {
-            Self::Dialogue(_) => vec![PopupButton::Cancel, PopupButton::Ok],
+            Self::Dialogue(_) => vec![PopupButton::Ok],
             Self::SaveFile(_) => vec![PopupButton::Cancel, PopupButton::Ok],
             Self::LoadFile(_) => vec![PopupButton::Cancel, PopupButton::Cancel],
             Self::IOError(_) => vec![PopupButton::Ok],
@@ -42,12 +44,12 @@ impl PopupKind {
         }
     }
 
-    pub fn content(&self) -> &str {
+    pub fn content(&self) -> String {
         match self {
-            Self::Dialogue(s) => &s,
-            Self::SaveFile(s) => &s,
-            Self::LoadFile(s) => &s,
-            Self::IOError(s) => &s,
+            Self::Dialogue(s) => s.clone(),
+            Self::SaveFile(s) => format!("path >> {}", &s),
+            Self::LoadFile(s) => s.clone(),
+            Self::IOError(s) => s.clone(),
         }
     }
 }
@@ -72,13 +74,26 @@ impl Popup {
         self.kind.title()
     }
 
-    pub fn content(&self) -> &str {
+    pub fn content(&self) -> String {
         self.kind.content()
     }
 
     fn handle_enter(&mut self, editor: &mut crate::editor::Editor) -> bool {
-        match self.kind {
-            PopupKind::Dialogue(_) => return true, //Only has an Ok button, and needs no logic. Just close it
+        match &self.kind {
+            PopupKind::Dialogue(_) | PopupKind::IOError(_) => return true, //Only has an Ok button, and needs no logic. Just close it
+            PopupKind::SaveFile(path) => {
+                match self.buttons[self.button_idx] {
+                    PopupButton::Ok => {
+                        if let Err(err) = editor.save_file_to_path(path.to_string()) {
+                            // stack.push(Popup::from_kind(PopupKind::IOError(err.to_string())));
+                            *self = Popup::from_kind(PopupKind::IOError(err.to_string()));
+                            return false;
+                        }
+                        return true;
+                    },
+                    PopupButton::Cancel => return true,
+                };
+            },
             _ => {},
         }
         false
@@ -91,6 +106,23 @@ impl Popup {
             KeyCode::Enter => {
                 return self.handle_enter(editor);
             },
+            KeyCode::Char(c) => {
+                match &mut self.kind {
+                    PopupKind::SaveFile(path) => {
+                        path.push(c);
+                    },
+                    _ => {},
+                }
+            },
+            KeyCode::Backspace => {
+                match &mut self.kind {
+                    PopupKind::SaveFile(path) => {
+                        let new_path: String = path[..].graphemes(true).take(path.len()-1).collect();
+                        *path = new_path;
+                    },
+                    _ => {},
+                }
+            }
             _ => {},
         }
         false

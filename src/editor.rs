@@ -47,18 +47,23 @@ impl File {
 
     pub fn save(&mut self) -> Result<(), std::io::Error> {
         if let Some(path) = &self.path {
-            let content: String = self.content.iter().map(|s| {
-                let mut s = String::from(s);
-                s.push('\n');
-                s
-            }).collect();
-            std::fs::write(path, content)?;
-            self.is_dirty = false;
-            self.saved_time = Some(Instant::now());
-            Ok(())
+            self.save_file_to_path(path.to_string())
         } else {
             Err(std::io::Error::new(std::io::ErrorKind::Other, "No path!"))
         }
+    }
+
+    pub fn save_file_to_path(&mut self, path: String) -> Result<(), std::io::Error> {
+        let content: String = self.content.iter().map(|s| {
+            let mut s = String::from(s);
+            s.push('\n');
+            s
+        }).collect();
+        std::fs::write(path.clone(), content)?;
+        self.is_dirty = false;
+        self.saved_time = Some(Instant::now());
+        self.path = Some(path);
+        Ok(())
     }
 
     pub fn path(&self) -> Option<&String> {
@@ -214,6 +219,10 @@ impl Editor {
 
     pub fn save_file(&mut self) -> Result<(), std::io::Error> {
         self.open_files[self.cur_file_idx].save()
+    }
+
+    pub fn save_file_to_path(&mut self, path: String) -> Result<(), std::io::Error> {
+        self.open_files[self.cur_file_idx].save_file_to_path(path)
     }
 
     fn update_styled_text(&mut self) {

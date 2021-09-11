@@ -149,7 +149,7 @@ fn main() -> Result<(), io::Error> {
                             },
                             KeyCode::Char('t') => {
                                 let mut stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
-                                stack.push(Popup::from_kind(PopupKind::Dialogue("Test dialogue".to_string())));
+                                stack.push(Popup::from_kind(PopupKind::SaveFile(String::new())));
                             }
                             _ => {}
                         }
