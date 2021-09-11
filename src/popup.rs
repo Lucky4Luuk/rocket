@@ -85,7 +85,6 @@ impl Popup {
                 match self.buttons[self.button_idx] {
                     PopupButton::Ok => {
                         if let Err(err) = editor.save_file_to_path(path.to_string()) {
-                            // stack.push(Popup::from_kind(PopupKind::IOError(err.to_string())));
                             *self = Popup::from_kind(PopupKind::IOError(err.to_string()));
                             return false;
                         }
