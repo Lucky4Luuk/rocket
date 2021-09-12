@@ -4,6 +4,8 @@ use crossterm::event::{KeyEvent, KeyCode};
 
 pub enum PopupButton {
     Ok,
+    /// Quirky version of Ok
+    IGotIt,
     Cancel,
 }
 
@@ -11,6 +13,7 @@ impl PopupButton {
     pub fn get_text(&self) -> &str {
         match self {
             Self::Ok => "okay",
+            Self::IGotIt => "i got it!",
             Self::Cancel => "cancel",
         }
     }
@@ -18,6 +21,7 @@ impl PopupButton {
 
 #[non_exhaustive]
 pub enum PopupKind {
+    Help,
     Dialogue(String),
     SaveFile(String),
     LoadFile(String),
@@ -27,6 +31,7 @@ pub enum PopupKind {
 impl PopupKind {
     pub fn get_buttons(&self) -> Vec<PopupButton> {
         match self {
+            Self::Help => vec![PopupButton::IGotIt],
             Self::Dialogue(_) => vec![PopupButton::Ok],
             Self::SaveFile(_) => vec![PopupButton::Cancel, PopupButton::Ok],
             Self::LoadFile(_) => vec![PopupButton::Cancel, PopupButton::Cancel],
@@ -37,6 +42,7 @@ impl PopupKind {
 
     pub fn title(&self) -> &str {
         match self {
+            Self::Help => "help menu",
             Self::Dialogue(_) => "dialogue",
             Self::SaveFile(_) => "save file",
             Self::LoadFile(_) => "load file",
@@ -46,6 +52,13 @@ impl PopupKind {
 
     pub fn content(&self) -> String {
         match self {
+            Self::Help => {
+"ctrl + h // this menu   |   alt + u // next file
+ctrl + q // quit        |   alt + i // next file
+ctrl + s // save        |
+ctrl + t // save as     |
+ctrl + o // open file   |".to_string()
+            }
             Self::Dialogue(s) => s.clone(),
             Self::SaveFile(s) => format!("path >> {}", &s),
             Self::LoadFile(s) => s.clone(),
@@ -80,7 +93,7 @@ impl Popup {
 
     fn handle_enter(&mut self, editor: &mut crate::editor::Editor) -> bool {
         match &self.kind {
-            PopupKind::Dialogue(_) | PopupKind::IOError(_) => return true, //Only has an Ok button, and needs no logic. Just close it
+            PopupKind::Help | PopupKind::Dialogue(_) | PopupKind::IOError(_) => return true, //Only has an Ok button, and needs no logic. Just close it
             PopupKind::SaveFile(path) => {
                 match self.buttons[self.button_idx] {
                     PopupButton::Ok => {
@@ -90,7 +103,7 @@ impl Popup {
                         }
                         return true;
                     },
-                    PopupButton::Cancel => return true,
+                    _ => return true,
                 };
             },
             _ => {},
