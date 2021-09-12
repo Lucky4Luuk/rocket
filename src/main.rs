@@ -96,7 +96,7 @@ fn main() -> Result<(), io::Error> {
             {
                 let stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
                 if stack.len() > 0 {
-                    let popup = &stack[0];
+                    let popup = &stack.last().unwrap();
 
                     let popup_rect = util::centered_rect(50, 20, f.size());
                     let popup_layout = Layout::default()
@@ -144,13 +144,18 @@ fn main() -> Result<(), io::Error> {
                             KeyCode::Char('r') => {}, //TODO: Command runner
                             KeyCode::Char('s') => {
                                 if let Err(err) = editor.save_file() {
-                                    //TODO: Handle the error
+                                    let mut stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
+                                    stack.push(Popup::from_kind(PopupKind::IOError(err.to_string())));
                                 }
+                            },
+                            KeyCode::Char('h') => {
+                                let mut stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
+                                stack.push(Popup::from_kind(PopupKind::Dialogue("wip help".to_string())));
                             },
                             KeyCode::Char('t') => {
                                 let mut stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
                                 stack.push(Popup::from_kind(PopupKind::SaveFile(String::new())));
-                            }
+                            },
                             _ => {}
                         }
                     } else if key.modifiers.contains(crossterm::event::KeyModifiers::ALT) {
@@ -161,8 +166,10 @@ fn main() -> Result<(), io::Error> {
                         }
                     } else if POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!").len() > 0 {
                         let mut stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
-                        if stack[0].handle_key(key, &mut editor) {
-                            stack.remove(0);
+                        if stack.len() > 0 {
+                            if stack.last_mut().unwrap().handle_key(key, &mut editor) {
+                                stack.pop();
+                            }
                         }
                     } else {
                         editor.handle_key(key);
