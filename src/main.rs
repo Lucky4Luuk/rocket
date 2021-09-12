@@ -151,6 +151,10 @@ fn main() -> Result<(), io::Error> {
                                     stack.push(Popup::from_kind(PopupKind::IOError(err.to_string())));
                                 }
                             },
+                            KeyCode::Char('o') => {
+                                let mut stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
+                                stack.push(Popup::from_kind(PopupKind::LoadFile(String::new())));
+                            },
                             KeyCode::Char('h') => {
                                 let mut stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
                                 stack.push(Popup::from_kind(PopupKind::Help));

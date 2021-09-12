@@ -34,7 +34,7 @@ impl PopupKind {
             Self::Help => vec![PopupButton::IGotIt],
             Self::Dialogue(_) => vec![PopupButton::Ok],
             Self::SaveFile(_) => vec![PopupButton::Cancel, PopupButton::Ok],
-            Self::LoadFile(_) => vec![PopupButton::Cancel, PopupButton::Cancel],
+            Self::LoadFile(_) => vec![PopupButton::Cancel, PopupButton::Ok],
             Self::IOError(_) => vec![PopupButton::Ok],
             _ => vec![],
         }
@@ -53,9 +53,9 @@ impl PopupKind {
     pub fn content(&self) -> String {
         match self {
             Self::Help => {
-"ctrl + h // this menu   |   alt + u // next file
-ctrl + q // quit        |   alt + i // next file
-ctrl + s // save        |
+"ctrl + h // this menu   |   alt + u  // next file
+ctrl + q // quit        |   alt + i  // next file
+ctrl + s // save        |   ctrl + w // close file
 ctrl + t // save as     |
 ctrl + o // open file   |".to_string()
             }
@@ -115,7 +115,7 @@ impl Popup {
                         }
                         return true;
                     },
-                    PopupButton::Cancel => return true,
+                    _ => return true,
                 };
             },
             _ => {},
@@ -132,7 +132,7 @@ impl Popup {
             },
             KeyCode::Char(c) => {
                 match &mut self.kind {
-                    PopupKind::SaveFile(path) => {
+                    PopupKind::SaveFile(path) | PopupKind::LoadFile(path) => {
                         path.push(c);
                     },
                     _ => {},
@@ -140,7 +140,7 @@ impl Popup {
             },
             KeyCode::Backspace => {
                 match &mut self.kind {
-                    PopupKind::SaveFile(path) => {
+                    PopupKind::SaveFile(path) | PopupKind::LoadFile(path) => {
                         let new_path: String = path[..].graphemes(true).take(path.len()-1).collect();
                         *path = new_path;
                     },
