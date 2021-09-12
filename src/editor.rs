@@ -234,7 +234,7 @@ impl Editor {
     fn update_styled_text(&mut self) {
         let mut content_spans = Vec::new();
         let lines = self.content();
-        let max_nums = lines.len().to_string().chars().count();
+        let max_nums = (lines.len().max(1)-1).to_string().chars().count();
         for (i, line) in lines.into_iter().enumerate() {
             let line_num = format!("{:width$}~ ", i, width = max_nums);
             let line = format!("{}", line.replace('\t', "    "));
