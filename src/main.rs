@@ -37,7 +37,7 @@ fn main() -> Result<(), io::Error> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut editor = Editor::from_paths(vec!["test.rs", "test.txt"])?;
+    let mut editor = Editor::from_paths(vec!["test.rs", "test.txt", "path_test/test.c"])?;
 
     'main: loop {
         terminal.draw(|f| {
@@ -96,9 +96,11 @@ fn main() -> Result<(), io::Error> {
             {
                 let stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
                 if stack.len() > 0 {
-                    let popup = &stack[0];
+                    let popup = &stack.last().unwrap();
 
-                    let popup_rect = util::centered_rect(50, 20, f.size());
+                    let h = 3 + popup.content().lines().count().max(1);
+
+                    let popup_rect = util::centered_rect_set(50, h as u16, f.size());
                     let popup_layout = Layout::default()
                         .direction(Direction::Vertical)
                         .margin(0)
@@ -106,7 +108,7 @@ fn main() -> Result<(), io::Error> {
                             [
                                 Constraint::Length(1),
                                 Constraint::Min(1),
-                                Constraint::Length(3), //For the buttons
+                                Constraint::Length(1), //For the buttons
                             ].as_ref()
                         )
                         .split(popup_rect);
@@ -116,20 +118,21 @@ fn main() -> Result<(), io::Error> {
                     let popup_content = Paragraph::new(popup.content()).style(style::popup_style(false));
                     f.render_widget(popup_content, popup_layout[1]);
 
-                    let button_perc = ((1f32 / popup.buttons.len() as f32) * 100f32) as u16;
-                    let button_constraints: Vec<Constraint> = (0..popup.buttons.len()).map(|_| Constraint::Percentage(button_perc)).collect();
+                    let button_spacing = 5;
+                    let button_perc = ((1f32 / popup.buttons.len() as f32) * 100f32) as u16 - ((1f32 / (popup.buttons.len()-1) as f32) * 2.5f32) as u16; //Adds 5 percent spacing to the calculation
+                    let button_constraints: Vec<Constraint> = (0..popup.buttons.len()*2-1).enumerate().map(|(i, _)| if i%2==0 { Constraint::Percentage(button_perc) } else { Constraint::Percentage(button_spacing) }).collect();
 
                     f.render_widget(Block::default().style(style::popup_style(false)), popup_layout[2]);
 
                     let popup_button_layout = Layout::default()
                         .direction(Direction::Horizontal)
-                        .margin(1)
+                        .horizontal_margin(button_spacing)
                         .constraints(button_constraints)
                         .split(popup_layout[2]);
 
                     for (i, button) in popup.buttons.iter().enumerate() {
                         let button_widget = Paragraph::new(button.get_text()).style(style::button_style(i == popup.button_idx)).alignment(Alignment::Center);
-                        f.render_widget(button_widget, popup_button_layout[i]);
+                        f.render_widget(button_widget, popup_button_layout[i*2]);
                     }
                 }
             }
@@ -144,13 +147,18 @@ fn main() -> Result<(), io::Error> {
                             KeyCode::Char('r') => {}, //TODO: Command runner
                             KeyCode::Char('s') => {
                                 if let Err(err) = editor.save_file() {
-                                    //TODO: Handle the error
+                                    let mut stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
+                                    stack.push(Popup::from_kind(PopupKind::IOError(err.to_string())));
                                 }
+                            },
+                            KeyCode::Char('h') => {
+                                let mut stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
+                                stack.push(Popup::from_kind(PopupKind::Help));
                             },
                             KeyCode::Char('t') => {
                                 let mut stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
                                 stack.push(Popup::from_kind(PopupKind::SaveFile(String::new())));
-                            }
+                            },
                             _ => {}
                         }
                     } else if key.modifiers.contains(crossterm::event::KeyModifiers::ALT) {
@@ -161,8 +169,10 @@ fn main() -> Result<(), io::Error> {
                         }
                     } else if POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!").len() > 0 {
                         let mut stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
-                        if stack[0].handle_key(key, &mut editor) {
-                            stack.remove(0);
+                        if stack.len() > 0 {
+                            if stack.last_mut().unwrap().handle_key(key, &mut editor) {
+                                stack.pop();
+                            }
                         }
                     } else {
                         editor.handle_key(key);
