@@ -102,10 +102,16 @@ impl File {
         if dx < 0  {
             if self.cursor.0 > 0 {
                 self.cursor.0 -= dx.abs() as u16;
+            } else if self.cursor.1 > 0 {
+                self.cursor.1 -= 1;
+                self.cursor.0 = self.line_length();
             }
-        } else {
+        } else if dx > 0 {
             if self.cursor.0 < self.line_length() {
                 self.cursor.0 += dx as u16;
+            } else if self.cursor.1 < self.line_count() - 1 {
+                self.cursor.0 = 0;
+                self.cursor.1 += 1;
             }
         }
 
@@ -114,7 +120,7 @@ impl File {
                 self.cursor.1 -= dy.abs() as u16;
                 self.cursor.0 = self.cursor.0.min(self.line_length());
             }
-        } else {
+        } else if dy > 0 {
             if self.cursor.1 < self.line_count() - 1 {
                 self.cursor.1 += dy as u16;
                 self.cursor.0 = self.cursor.0.min(self.line_length());
