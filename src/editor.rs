@@ -225,6 +225,11 @@ impl Editor {
         self.open_files[self.cur_file_idx].save_file_to_path(path)
     }
 
+    pub fn load_file_from_path(&mut self, path: String) -> Result<(), std::io::Error> {
+        self.open_files.push(File::from_path(&path)?);
+        Ok(())
+    }
+
     fn update_styled_text(&mut self) {
         let mut content_spans = Vec::new();
         let lines = self.content();

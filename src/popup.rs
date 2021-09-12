@@ -48,7 +48,7 @@ impl PopupKind {
         match self {
             Self::Dialogue(s) => s.clone(),
             Self::SaveFile(s) => format!("path >> {}", &s),
-            Self::LoadFile(s) => s.clone(),
+            Self::LoadFile(s) => format!("path >> {}", &s),
             Self::IOError(s) => s.clone(),
         }
     }
@@ -85,6 +85,18 @@ impl Popup {
                 match self.buttons[self.button_idx] {
                     PopupButton::Ok => {
                         if let Err(err) = editor.save_file_to_path(path.to_string()) {
+                            *self = Popup::from_kind(PopupKind::IOError(err.to_string()));
+                            return false;
+                        }
+                        return true;
+                    },
+                    PopupButton::Cancel => return true,
+                };
+            },
+            PopupKind::LoadFile(path) => {
+                match self.buttons[self.button_idx] {
+                    PopupButton::Ok => {
+                        if let Err(err) = editor.load_file_from_path(path.to_string()) {
                             *self = Popup::from_kind(PopupKind::IOError(err.to_string()));
                             return false;
                         }
