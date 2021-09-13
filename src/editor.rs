@@ -232,7 +232,20 @@ impl Editor {
     }
 
     pub fn load_file_from_path(&mut self, path: String) -> Result<(), std::io::Error> {
-        self.open_files.push(File::from_path(&path)?);
+        let mut is_open = false;
+        let mut open_idx = 0;
+        'search: for (i, file) in self.open_files.iter().enumerate() {
+            if file.path == Some(path.clone()) {
+                open_idx = i;
+                is_open = true;
+                break 'search;
+            }
+        }
+        if !is_open {
+            self.open_files.push(File::from_path(&path)?);
+        } else {
+            self.cur_file_idx = open_idx;
+        }
         Ok(())
     }
 
