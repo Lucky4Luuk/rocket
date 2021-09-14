@@ -56,7 +56,7 @@ impl PopupKind {
 "ctrl + h // this menu   |   alt + u  // next file
 ctrl + q // quit        |   alt + i  // next file
 ctrl + s // save        |   ctrl + w // close file
-ctrl + t // save as     |
+ctrl + t // save as     |   ctrl + k // goto file
 ctrl + o // open file   |".to_string()
             }
             Self::Dialogue(s) => s.clone(),

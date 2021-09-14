@@ -162,6 +162,17 @@ impl File {
         self.is_dirty = true;
     }
 
+    #[inline(never)]
+    pub fn remove_token(&mut self) {
+        let mut c = self.content[self.cursor.1 as usize].chars().nth(self.cursor.0 as usize - 1);
+
+        'remove: while c.is_some() && self.cursor.0 > 0 {
+            if c.unwrap().is_whitespace() { break 'remove; }
+            self.remove_character();
+            c = self.content[self.cursor.1 as usize].chars().nth(self.cursor.0 as usize - 1);
+        }
+    }
+
     pub fn remove_character(&mut self) {
         if self.cursor.0 == 0 {
             if self.cursor.1 > 0 {
@@ -206,7 +217,6 @@ impl Editor {
         let files = if paths.is_empty() {
             vec![File::new()]
         } else {
-            // paths.iter().map(|s| File::from_path(*s)).collect()
             let mut tmp = Vec::new();
             for path in paths {
                 tmp.push(File::from_path(path)?);
@@ -246,6 +256,9 @@ impl Editor {
         } else {
             self.cur_file_idx = open_idx;
         }
+
+        self.update_styled_text();
+
         Ok(())
     }
 
@@ -374,5 +387,10 @@ impl Editor {
 
             _ => {},
         }
+    }
+
+    pub fn ctrl_backspace(&mut self) {
+        self.open_files[self.cur_file_idx].remove_token();
+        self.update_styled_text();
     }
 }

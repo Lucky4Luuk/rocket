@@ -100,7 +100,7 @@ fn main() -> Result<(), io::Error> {
 
                     let h = 3 + popup.content().lines().count().max(1);
 
-                    let popup_rect = util::centered_rect_set(50, h as u16, f.size());
+                    let popup_rect = util::centered_rect_set(52, h as u16, f.size());
                     let popup_layout = Layout::default()
                         .direction(Direction::Vertical)
                         .margin(0)
@@ -163,6 +163,7 @@ fn main() -> Result<(), io::Error> {
                                 let mut stack = POPUP_STACK.lock().expect("Failed to get lock on POPUP_STACK!");
                                 stack.push(Popup::from_kind(PopupKind::SaveFile(String::new())));
                             },
+                            KeyCode::Backspace => editor.ctrl_backspace(),
                             _ => {}
                         }
                     } else if key.modifiers.contains(crossterm::event::KeyModifiers::ALT) {
